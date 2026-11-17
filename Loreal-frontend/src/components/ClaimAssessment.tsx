@@ -1,19 +1,20 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-import { api } from "../api";
-import type { Assessment } from "../types/assessment";
-import type { Claim } from "../types/claim";
+import { assessClaim } from "../api";
+import type { AssessClaimRequest, Assessment } from "../types/assessment";
 
-interface ClaimAssessmentProps {
-  claim: Claim;
-  onAssessed?: (assessment: Assessment) => void;
-}
+const EMPTY_FORM: AssessClaimRequest = { productName: "", claim: "", evidence: "" };
 
-const SAMPLE_EVIDENCE =
-  "Randomised, double-blind, vehicle-controlled study. n=40 women aged 25-55. " +
-  "Skin hydration measured by Corneometer at baseline, 24h, 48h and 72h. " +
-  "Mean hydration +38% at 24h, +29% at 48h and +21% at 72h vs baseline (all p<0.01).";
+const SAMPLE: AssessClaimRequest = {
+  productName: "Revitalift Night Cream",
+  claim: "Reduces wrinkles by 20% in 4 weeks",
+  evidence:
+    "Randomised, double-blind, vehicle-controlled study. n=60 women aged 40-65. " +
+    "Crow's-feet wrinkle depth measured by fringe projection profilometry at baseline, week 2 and week 4. " +
+    "Mean wrinkle depth reduced by 22% at week 4 vs baseline, exceeding the claimed 20% (p<0.01); " +
+    "vehicle showed no significant change.",
+};
 
 const MIN_EVIDENCE_LENGTH = 20;
 
@@ -21,18 +22,23 @@ const confidenceLevel = (score: number) =>
   score >= 0.75 ? "high" : score >= 0.5 ? "medium" : "low";
 
 /**
- * Evaluator attaches clinical study results and calls POST /api/claims/assess.
- * The backend asks the LLM whether the evidence justifies the claim, saves the
- * verdict, and returns it. This component shows:
- * Justified (Yes/No), Confidence Score and Reasoning.
+ * Sends a claim and its clinical evidence to POST /api/claims/assess and shows the
+ * saved verdict: Justified (Yes/No), Confidence Score and Reasoning.
  */
-export const ClaimAssessment = ({ claim, onAssessed }: ClaimAssessmentProps) => {
-  const [evidence, setEvidence] = useState("");
-  const [result, setResult] = useState<Assessment | undefined>(claim.latestAssessment);
+export const ClaimAssessment = () => {
+  const [form, setForm] = useState<AssessClaimRequest>(EMPTY_FORM);
+  const [result, setResult] = useState<Assessment | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = !loading && evidence.trim().length >= MIN_EVIDENCE_LENGTH;
+  const update = (field: keyof AssessClaimRequest) => (value: string) =>
+    setForm((previous) => ({ ...previous, [field]: value }));
+
+  const canSubmit =
+    !loading &&
+    form.productName.trim() !== "" &&
+    form.claim.trim() !== "" &&
+    form.evidence.trim().length >= MIN_EVIDENCE_LENGTH;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -41,9 +47,7 @@ export const ClaimAssessment = ({ claim, onAssessed }: ClaimAssessmentProps) => 
     setLoading(true);
     setError(null);
     try {
-      const assessment = await api.assessClaim(claim.id, evidence.trim());
-      setResult(assessment);
-      onAssessed?.(assessment);
+      setResult(await assessClaim(form));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -54,39 +58,68 @@ export const ClaimAssessment = ({ claim, onAssessed }: ClaimAssessmentProps) => 
   const confidencePct = result ? Math.round(result.confidenceScore * 100) : 0;
 
   return (
-    <section className="ai-assessment" aria-labelledby="ai-assessment-title">
-      <h3 id="ai-assessment-title">AI Evidence Assessment</h3>
-      <p className="muted">
-        Does the clinical study justify <strong>“{claim.claim}”</strong>?
-      </p>
-
-      <form onSubmit={handleSubmit}>
-        <div className="label-row">
-          <label htmlFor="evidence">Clinical Study Results</label>
-          <button type="button" className="link-button" onClick={() => setEvidence(SAMPLE_EVIDENCE)}>
-            Use sample evidence
+    <div className="assessment-layout">
+      <form className="card" onSubmit={handleSubmit}>
+        <div className="card-header">
+          <h2>Assess a Claim</h2>
+          <button type="button" className="link-button" onClick={() => setForm(SAMPLE)} disabled={loading}>
+            Use sample
           </button>
         </div>
+
+        <label htmlFor="productName">Product</label>
+        <input
+          id="productName"
+          value={form.productName}
+          onChange={(e) => update("productName")(e.target.value)}
+          placeholder="e.g. Revitalift Night Cream"
+          maxLength={200}
+          disabled={loading}
+          required
+        />
+
+        <label htmlFor="claim">Claim</label>
+        <input
+          id="claim"
+          value={form.claim}
+          onChange={(e) => update("claim")(e.target.value)}
+          placeholder="e.g. Reduces wrinkles by 20% in 4 weeks"
+          maxLength={500}
+          disabled={loading}
+          required
+        />
+
+        <label htmlFor="evidence">Clinical Study Results</label>
         <textarea
           id="evidence"
-          rows={6}
-          value={evidence}
-          onChange={(e) => setEvidence(e.target.value)}
-          placeholder="Paste study design, panel size, endpoints, results and statistical significance…"
+          rows={7}
+          value={form.evidence}
+          onChange={(e) => update("evidence")(e.target.value)}
+          placeholder="Study design, panel size, endpoints, results and statistical significance…"
           disabled={loading}
           required
         />
 
         <button type="submit" disabled={!canSubmit}>
-          {loading ? "Assessing…" : result ? "Re-run AI Assessment" : "Run AI Assessment"}
+          {loading ? "Assessing…" : "Run AI Assessment"}
         </button>
       </form>
 
-      <div aria-live="polite">
+      <section className="card result-card" aria-live="polite" aria-busy={loading}>
+        <h2>Result</h2>
+
         {error && <p className="form-error">{error}</p>}
 
-        {result && !loading && (
+        {!result && !error && (
+          <p className="muted">Submit a claim and its evidence to see whether the study justifies it.</p>
+        )}
+
+        {result && (
           <div className={`assessment-result ${result.isJustified ? "justified" : "not-justified"}`}>
+            <p className="result-claim">
+              “{result.claim}” <span className="muted">· {result.productName}</span>
+            </p>
+
             <dl className="assessment-metrics">
               <div>
                 <dt className="metric-label">Justified</dt>
@@ -114,23 +147,13 @@ export const ClaimAssessment = ({ claim, onAssessed }: ClaimAssessmentProps) => 
             <span className="metric-label">Reasoning</span>
             <p className="reasoning">{result.reasoning}</p>
 
-            {result.gaps.length > 0 && (
-              <>
-                <span className="metric-label">Evidence Gaps</span>
-                <ul className="gaps">
-                  {result.gaps.map((gap) => (
-                    <li key={gap}>{gap}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-
             <small className="muted">
-              Model: {result.model} · {new Date(result.createdAt).toLocaleString()}
+              Saved as assessment #{result.id} for claim #{result.claimId} · Model: {result.model} ·{" "}
+              {new Date(result.createdAt).toLocaleString()}
             </small>
           </div>
         )}
-      </div>
-    </section>
+      </section>
+    </div>
   );
 };

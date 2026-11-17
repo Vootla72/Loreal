@@ -1,14 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LlmService } from '../llm/llm.service';
-import { AssessClaimDto, CreateClaimDto, UpdateClaimDto } from './dto/claim.dto';
-import { RESULT_FROM_LABEL, STATUS_FROM_LABEL, toAssessmentResponse, toClaimResponse } from './claim.mapper';
+import { AssessClaimDto } from './dto/claim.dto';
 
-const CLAIM_INCLUDE = {
-  product: true,
-  assessments: { orderBy: { createdAt: 'desc' }, take: 1 },
-} satisfies Prisma.ClaimInclude;
+/** "Reduces  Wrinkles by 20%" and "reduces wrinkles by 20%" are the same claim. */
+export const normalizeClaim = (text: string) => text.trim().replace(/\s+/g, ' ').toLowerCase();
 
 @Injectable()
 export class ClaimsService {
@@ -17,73 +14,58 @@ export class ClaimsService {
     private readonly llm: LlmService,
   ) {}
 
-  async findAll() {
-    const claims = await this.prisma.claim.findMany({ include: CLAIM_INCLUDE, orderBy: { createdAt: 'asc' } });
-    return claims.map(toClaimResponse);
-  }
-
-  async create(dto: CreateClaimDto) {
-    const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
-    if (!product) throw new NotFoundException(`Product ${dto.productId} not found`);
-    const claim = await this.prisma.claim.create({
-      data: { productId: dto.productId, claimText: dto.claim, category: dto.category },
-      include: CLAIM_INCLUDE,
-    });
-    return toClaimResponse(claim);
-  }
-
-  async update(id: number, dto: UpdateClaimDto) {
-    await this.getOrThrow(id);
-    const { status, scientistResult, ...rest } = dto;
-    const claim = await this.prisma.claim.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(status && { status: STATUS_FROM_LABEL[status] }),
-        ...(scientistResult && { scientistResult: RESULT_FROM_LABEL[scientistResult] }),
-      },
-      include: CLAIM_INCLUDE,
-    });
-    return toClaimResponse(claim);
-  }
-
-  async listAssessments(claimId: number) {
-    await this.getOrThrow(claimId);
-    const rows = await this.prisma.assessment.findMany({ where: { claimId }, orderBy: { createdAt: 'desc' } });
-    return rows.map(toAssessmentResponse);
-  }
-
   /**
-   * Core feature: ask the LLM whether the clinical evidence justifies the claim,
-   * persist the verdict, and return it.
+   * Ask the LLM whether the evidence justifies the claim, save the verdict, and return it.
+   * The claim is matched on product + normalized wording: reused if it exists, created if not.
    */
   async assess(dto: AssessClaimDto) {
-    const claim = await this.getOrThrow(dto.claimId);
-    if (claim.status !== 'READY_FOR_EVALUATION') {
-      throw new BadRequestException('Only claims that are "Ready for Evaluation" can be assessed.');
+    // Call the LLM first, so a failed call leaves nothing half-saved.
+    const verdict = await this.llm.assessClaim({
+      productName: dto.productName,
+      claimText: dto.claim,
+      evidence: dto.evidence,
+    });
+
+    const normalizedText = normalizeClaim(dto.claim);
+
+    // One write: link to the existing claim or create it, then store the assessment.
+    const save = () => this.prisma.assessment.create({
+      data: {
+        evidence: dto.evidence,
+        isJustified: verdict.isJustified,
+        confidenceScore: verdict.confidenceScore,
+        reasoning: verdict.reasoning,
+        model: verdict.model,
+        claim: {
+          connectOrCreate: {
+            where: { productName_normalizedText: { productName: dto.productName, normalizedText } },
+            create: { productName: dto.productName, claimText: dto.claim, normalizedText },
+          },
+        },
+      },
+      include: { claim: true },
+    });
+
+    let assessment: Awaited<ReturnType<typeof save>>;
+    try {
+      assessment = await save();
+    } catch (error) {
+      // Two identical requests can race to create the same claim. The loser hits the
+      // unique constraint; retrying then finds the claim and links to it.
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
+      assessment = await save();
     }
 
-    const scientistSummary = claim.scientistTest
-      ? `Test: ${claim.scientistTest}. Result: ${claim.scientistResult ?? 'n/a'}. Notes: ${claim.scientistComments || 'none'}`
-      : undefined;
-
-    const verdict = await this.llm.assessClaim({
-      productName: claim.product.name,
-      productCategory: claim.product.category,
-      claimText: claim.claimText,
-      evidence: dto.evidence,
-      scientistSummary,
-    });
-
-    const saved = await this.prisma.assessment.create({
-      data: { claimId: claim.id, evidence: dto.evidence, ...verdict },
-    });
-    return toAssessmentResponse(saved);
-  }
-
-  private async getOrThrow(id: number) {
-    const claim = await this.prisma.claim.findUnique({ where: { id }, include: { product: true } });
-    if (!claim) throw new NotFoundException(`Claim ${id} not found`);
-    return claim;
+    return {
+      id: assessment.id,
+      claimId: assessment.claimId,
+      productName: assessment.claim.productName,
+      claim: assessment.claim.claimText,
+      isJustified: assessment.isJustified,
+      confidenceScore: assessment.confidenceScore,
+      reasoning: assessment.reasoning,
+      model: assessment.model,
+      createdAt: assessment.createdAt.toISOString(),
+    };
   }
 }

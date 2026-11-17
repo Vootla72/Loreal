@@ -11,7 +11,9 @@ A cosmetic claim ("Reduces wrinkles by 20% in 4 weeks") is a regulated promise. 
 | 3 | R&I scientist | Runs the formulation test and records the result | Ready for Evaluation / Rejected |
 | 4 | Evaluator | Attaches clinical study results; the AI checks they justify the claim; evaluator approves or rejects | Approved / Evaluation Rejected |
 
-The AI does not replace the evaluator. It gives a fast, consistent first opinion (verdict, confidence, reasoning, evidence gaps) and the human makes the final, accountable decision. The Approve button is disabled until an assessment exists.
+The AI does not replace the evaluator. It gives a fast, consistent first opinion (verdict, confidence, reasoning) and the human makes the final, accountable decision.
+
+**Scope of this build.** The brief asks for the core feature at step 4: a claim and its evidence go to the LLM, and the verdict is saved and shown. This branch builds exactly that. Steps 1 to 3 are the surrounding workflow; the `main` branch contains a version that implements all four steps.
 
 The key failure modes the AI must catch are mismatches between claim and evidence:
 - **Endpoint**: self-assessed "smoother skin" does not prove measured wrinkle depth.
@@ -23,7 +25,7 @@ The key failure modes the AI must catch are mismatches between claim and evidenc
 
 - **Regulation.** EU 655/2013 common criteria (legal compliance, truthfulness, evidential support, honesty, fairness, informed decision-making) are encoded directly in the system prompt so the model reasons the way a claims reviewer would.
 - **Substantiation methods.** Typical instrumental endpoints were reviewed: profilometry for wrinkles, corneometry for hydration, SPF in-vivo testing. The prompt asks the model to compare endpoint, magnitude, timeframe and design explicitly.
-- **LLM output reliability.** OpenAI Structured Outputs (`response_format: json_schema`, `strict: true`) guarantees a parseable response with exactly `isJustified`, `confidenceScore`, `reasoning`, `gaps`. Temperature 0 gives repeatable verdicts.
+- **LLM output reliability.** OpenAI Structured Outputs (`response_format: json_schema`, `strict: true`) guarantees a parseable response with exactly `isJustified`, `confidenceScore` and `reasoning`. Temperature 0 gives repeatable verdicts.
 - **Prompt injection.** Evidence is untrusted text, so it is wrapped in `<evidence>` tags and the system prompt tells the model to treat it as data only.
 - **Stack choices.** Prisma was chosen over TypeORM for its typed client, declarative schema and first-class migrations. NestJS gives modules, dependency injection and DTO validation out of the box.
 
@@ -39,21 +41,69 @@ flowchart LR
   LLM -. no API key .-> MOCK[Offline mock assessor]
 ```
 
-**Data model.** `Product 1—n Claim 1—n Assessment`.
-- `Claim` holds the workflow status as an enum plus the fields each role fills in.
-- `Assessment` is append-only history. Each row stores the evidence, verdict, confidence, reasoning, gaps, model id, prompt version and latency. This gives an audit trail of which model and prompt produced which decision, which matters for regulated claims.
+**Data model.** `Claim 1—n Assessment`.
 
-**Request flow for `POST /api/claims/assess`.**
-1. DTO validation rejects bad input (`claimId` integer, evidence 20 to 20,000 chars, unknown fields refused).
-2. The service loads the claim and product, and refuses unless the status is Ready for Evaluation.
-3. The LLM service builds the prompt, including the scientist's test summary, and calls OpenAI with a 30-second timeout and two retries.
-4. The verdict is clamped, persisted, and returned to the UI. OpenAI failures become a clean 502.
+```prisma
+model Claim {
+  id             Int          @id @default(autoincrement())
+  productName    String
+  claimText      String       // as entered, for display
+  normalizedText String       // trimmed, lowercased, single-spaced
+  createdAt      DateTime     @default(now())
+  assessments    Assessment[]
+
+  @@unique([productName, normalizedText])
+}
+
+model Assessment {
+  id              Int      @id @default(autoincrement())
+  claimId         Int
+  claim           Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  evidence        String   @db.Text
+  isJustified     Boolean
+  confidenceScore Float    // 0.0 - 1.0
+  reasoning       String   @db.Text
+  model           String   // LLM model id, or "mock"
+  createdAt       DateTime @default(now())
+
+  @@index([claimId, createdAt])
+}
+```
+
+- **A claim is identified by product plus normalized wording.** Re-assessing the same claim with new evidence adds to its history instead of creating a duplicate. The product is part of the key because the same sentence can be true for one product and false for another. There is no fuzzy matching, because small wording changes matter legally ("reduces wrinkles" versus "reduces the appearance of wrinkles").
+- **Assessments are append-only.** Each row stores the evidence, the verdict and the model that produced it, which gives an audit trail for regulated claims.
+
+**Request flow for `POST /api/claims/assess`.** Body: `{ productName, claim, evidence }`.
+1. DTO validation trims input and rejects bad requests: empty fields, evidence under 20 characters, unknown fields.
+2. The LLM service calls OpenAI with Structured Outputs, temperature 0, a 30-second timeout and two retries. It runs first, so a failed call leaves nothing half-saved.
+3. One database write links to the existing claim or creates it, then stores the assessment. If two identical requests race to create the same claim, the loser hits the unique constraint and retries.
+4. The saved assessment is returned to the UI. OpenAI failures become a clean 502.
+
+```ts
+@Post('assess')
+assess(@Body() dto: AssessClaimDto) {
+  return this.claims.assess(dto);
+}
+
+// ClaimsService.assess
+const verdict = await this.llm.assessClaim({ productName, claimText: claim, evidence });
+return this.prisma.assessment.create({
+  data: {
+    evidence, ...verdict,
+    claim: {
+      connectOrCreate: {
+        where:  { productName_normalizedText: { productName, normalizedText } },
+        create: { productName, claimText: claim, normalizedText },
+      },
+    },
+  },
+});
+```
 
 **Why this design.**
 - The LLM sits behind its own service, so the provider or model can change through config (`OPENAI_MODEL`) without touching business logic.
 - The mock assessor lets the whole flow run in demos, tests and CI without a key or cost.
-- Labels ("Ready for Evaluation") live only at the API edge; the database stores stable enum values.
-- The frontend talks to one typed API client (`src/api.ts`), and the Vite proxy avoids CORS in development.
+- The frontend talks to one typed API function (`src/api.ts`), and the Vite proxy avoids CORS in development.
 
 ## 4. Product roadmap
 
@@ -83,7 +133,9 @@ A simplified, dependency-free version of the component. The full TypeScript vers
 ```jsx
 import { useState } from "react";
 
-export function ClaimAssessment({ claimId, claimText }) {
+export function ClaimAssessment() {
+  const [productName, setProductName] = useState("");
+  const [claim, setClaim] = useState("");
   const [evidence, setEvidence] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -97,7 +149,7 @@ export function ClaimAssessment({ claimId, claimText }) {
       const res = await fetch("/api/claims/assess", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ claimId, evidence }),
+        body: JSON.stringify({ productName, claim, evidence }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Assessment failed");
@@ -111,9 +163,9 @@ export function ClaimAssessment({ claimId, claimText }) {
 
   return (
     <section>
-      <h3>Does the study justify “{claimText}”?</h3>
-
       <form onSubmit={handleSubmit}>
+        <input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Product" required />
+        <input value={claim} onChange={(e) => setClaim(e.target.value)} placeholder="Claim" required />
         <textarea
           value={evidence}
           onChange={(e) => setEvidence(e.target.value)}

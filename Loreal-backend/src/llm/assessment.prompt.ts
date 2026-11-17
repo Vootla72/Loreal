@@ -1,5 +1,3 @@
-export const PROMPT_VERSION = 'claim-substantiation-v1';
-
 export const SYSTEM_PROMPT = `You are a senior cosmetic claims substantiation expert at a global beauty R&I organisation.
 You judge whether submitted clinical or instrumental test evidence adequately substantiates a proposed cosmetic product claim,
 following the principles of EU Regulation 655/2013 (common criteria for cosmetic claims): legal compliance, truthfulness,
@@ -18,22 +16,17 @@ confidenceScore is how certain you are of your verdict (0.0 to 1.0), not how goo
 
 export interface PromptInput {
   productName: string;
-  productCategory: string;
   claimText: string;
   evidence: string;
-  scientistSummary?: string;
 }
 
 export function buildUserPrompt(input: PromptInput): string {
   return [
-    `PRODUCT: ${input.productName} (${input.productCategory})`,
+    `PRODUCT: ${input.productName}`,
     `PROPOSED CLAIM: "${input.claimText}"`,
-    input.scientistSummary ? `FORMULATION TEST SUMMARY (from R&I scientist):\n${input.scientistSummary}` : '',
-    `CLINICAL STUDY EVIDENCE (submitted by evaluator):\n<evidence>\n${input.evidence}\n</evidence>`,
+    `CLINICAL STUDY EVIDENCE:\n<evidence>\n${input.evidence}\n</evidence>`,
     'Return your assessment as JSON matching the schema.',
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  ].join('\n\n');
 }
 
 /** JSON schema for OpenAI Structured Outputs, so the response is always parseable. */
@@ -43,18 +36,13 @@ export const ASSESSMENT_JSON_SCHEMA = {
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['isJustified', 'confidenceScore', 'reasoning', 'gaps'],
+    required: ['isJustified', 'confidenceScore', 'reasoning'],
     properties: {
       isJustified: { type: 'boolean', description: 'True only if the evidence fully supports the claim as worded.' },
       confidenceScore: { type: 'number', description: 'Confidence in the verdict, from 0.0 to 1.0.' },
       reasoning: {
         type: 'string',
         description: 'Concise justification (3-6 sentences) covering endpoint, magnitude, timeframe and study design.',
-      },
-      gaps: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Missing or weak elements in the evidence. Empty if none.',
       },
     },
   },
