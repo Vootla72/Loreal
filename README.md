@@ -34,6 +34,7 @@ cd Loreal-backend
 npm install
 # edit .env: DATABASE_URL (your postgres password) and optionally OPENAI_API_KEY
 npx prisma migrate deploy     # creates the Claim and Assessment tables
+npm run db:seed               # optional: sample claims and assessments (safe to re-run)
 npm run start:dev             # http://localhost:3000/api
 ```
 
