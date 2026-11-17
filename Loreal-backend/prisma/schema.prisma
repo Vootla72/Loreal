@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A product proposed by the business team.
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String
+  category    String
+  createdAt   DateTime @default(now())
+  claims      Claim[]
+}
+
+/// Workflow status of a claim. Mapped to the human-readable labels used by the UI.
+enum ClaimStatus {
+  PENDING              @map("Pending")
+  UNDER_REVIEW         @map("Under Review")
+  SENT_TO_SCIENTIST    @map("Sent to Scientist")
+  REJECTED             @map("Rejected")
+  READY_FOR_EVALUATION @map("Ready for Evaluation")
+  APPROVED             @map("Approved")
+  EVALUATION_REJECTED  @map("Evaluation Rejected")
+}
+
+enum ScientistResult {
+  PASS
+  FAIL
+  INCONCLUSIVE
+}
+
+/// A marketing claim, e.g. "Reduces wrinkles by 20% in 4 weeks".
+/// Carries the workflow fields filled in by each role.
+model Claim {
+  id        Int         @id @default(autoincrement())
+  productId Int
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  claimText String
+  category  String
+  status    ClaimStatus @default(PENDING)
+
+  // Claim manager
+  applicability   Boolean?
+  feasibility     Boolean?
+  managerComments String?
+
+  // Scientist (formulation test)
+  scientistTest     String?
+  scientistResult   ScientistResult?
+  scientistComments String?
+
+  // Evaluator (final decision)
+  finalComments String?
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  assessments Assessment[]
+
+  @@index([status])
+  @@index([productId])
+}
+
+/// One LLM assessment of whether clinical evidence justifies a claim.
+/// Kept as history: a claim can be re-assessed when new evidence arrives.
+model Assessment {
+  id              Int      @id @default(autoincrement())
+  claimId         Int
+  claim           Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  evidence        String   @db.Text
+  isJustified     Boolean
+  confidenceScore Float /// 0.0 - 1.0
+  reasoning       String   @db.Text
+  gaps            String[] /// What the evidence is missing, if anything
+  model           String /// LLM model id, or "mock" when no API key is set
+  promptVersion   String
+  latencyMs       Int
+  createdAt       DateTime @default(now())
+
+  @@index([claimId, createdAt])
+}
