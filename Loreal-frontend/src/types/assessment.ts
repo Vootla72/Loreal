@@ -1,11 +1,15 @@
-/** Request body for POST /api/claims/assess */
 export interface AssessClaimRequest {
   productName: string;
   claim: string;
   evidence: string;
 }
 
-/** Saved assessment returned by POST /api/claims/assess */
+export interface AssessClaimUploadRequest {
+  productName: string;
+  claim: string;
+  file: File;
+}
+
 export interface Assessment {
   id: number;
   claimId: number;
@@ -17,4 +21,6 @@ export interface Assessment {
   reasoning: string;
   model: string;
   createdAt: string;
+  /** True when an earlier verdict for the same claim and evidence was reused instead of calling the LLM. */
+  cached: boolean;
 }

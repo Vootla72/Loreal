@@ -7,6 +7,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { normalizeClaim } from '../src/claims/normalize-claim';
+import { hashEvidence } from '../src/claims/evidence-hash';
 
 const prisma = new PrismaClient();
 
@@ -152,6 +153,7 @@ async function main() {
         data: {
           claimId: claim.id,
           evidence: a.evidence,
+          evidenceHash: hashEvidence(a.evidence),
           isJustified: a.isJustified,
           confidenceScore: a.confidenceScore,
           reasoning: a.reasoning,

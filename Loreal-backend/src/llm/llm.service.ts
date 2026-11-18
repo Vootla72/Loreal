@@ -32,12 +32,17 @@ export class LlmService {
     return this.client ? `openai:${this.model}` : 'mock';
   }
 
+  /** The model id stored with each verdict, known before the call so it can be part of the cache key. */
+  get modelId(): string {
+    return this.client ? this.model : 'mock';
+  }
+
   async assessClaim(input: PromptInput): Promise<LlmAssessment> {
     const verdict = this.client ? await this.callOpenAi(this.client, input) : this.mockAssess(input);
     return {
       ...verdict,
       confidenceScore: Math.min(1, Math.max(0, verdict.confidenceScore)),
-      model: this.client ? this.model : 'mock',
+      model: this.modelId,
     };
   }
 

@@ -7,12 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// A proposed product claim, e.g. "Reduces wrinkles by 20% in 4 weeks".
 /// One row per product + wording, so re-assessing the same claim adds to its history.
 model Claim {
   id             Int          @id @default(autoincrement())
   productName    String
-  claimText      String /// As entered, for display
+  claimText      String
   normalizedText String /// Trimmed, lowercased, single-spaced: used to match the same claim
   createdAt      DateTime     @default(now())
   assessments    Assessment[]
@@ -20,7 +19,6 @@ model Claim {
   @@unique([productName, normalizedText])
 }
 
-/// One LLM verdict on whether clinical evidence justifies a claim.
 model Assessment {
   id              Int      @id @default(autoincrement())
   claimId         Int
@@ -30,7 +28,10 @@ model Assessment {
   confidenceScore Float /// 0.0 - 1.0
   reasoning       String   @db.Text
   model           String /// LLM model id, or "mock" when no API key is set
+  evidenceHash    String /// sha256 of the whitespace-normalized evidence: the cache key for reusing a verdict
+  promptVersion   String   @default("v1")
   createdAt       DateTime @default(now())
 
   @@index([claimId, createdAt])
+  @@index([claimId, evidenceHash, model, promptVersion])
 }

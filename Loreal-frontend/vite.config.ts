@@ -9,7 +9,6 @@ export default defineConfig({
     babel({ presets: [reactCompilerPreset()] })
   ],
   server: {
-    // Forward /api calls to the NestJS backend during development
     proxy: {
       '/api': process.env.VITE_PROXY_TARGET ?? 'http://localhost:3000',
     },
