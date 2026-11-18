@@ -95,7 +95,7 @@ export class LlmService {
 
     const isJustified = missingNumbers.length === 0 && hasSignificance && hasPanel;
     const confidenceScore = Number((0.5 + 0.1 * (4 - gaps.length)).toFixed(2));
-    const note = '(Offline mock assessor. Set OPENAI_API_KEY for a real LLM review.)';
+    const note = '(Offline mock assessor.)';
     const reasoning = isJustified
       ? `The evidence reports the claimed figures for "${input.claimText}" with a stated panel size and statistical significance, so the claim appears substantiated. ${note}`
       : `The evidence does not fully substantiate "${input.claimText}". ${gaps.join(' ')} ${note}`;
