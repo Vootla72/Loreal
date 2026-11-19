@@ -1,58 +1,60 @@
-# L'Oréal Claims Intelligence Engine: Core Feature
+# L'Oréal Claims Intelligence Engine
 
-An evaluator submits a product claim and its clinical study results. An LLM judges whether the study justifies the claim, the verdict is saved to PostgreSQL, and the React UI shows **Justified (Yes/No)**, **Confidence Score** and **Reasoning**.
+
+You enter a product, a claim and the clinical study (as a PDF). The backend sends it to an LLM, which decides whether the study backs up the claim. The verdict is saved in PostgreSQL and shown in the UI as **Justified (Yes/No)**, **Confidence Score** and **Reasoning**.
 
 ```
-Loreal-frontend/   React 19 + Vite + TypeScript: one page, one component
-Loreal-backend/    NestJS 11 + Prisma 6 + OpenAI SDK: one endpoint
-PROPOSAL.md        Business process, research, architecture, roadmap
+Loreal-backend/    NestJS 11, Prisma 6, PostgreSQL, OpenAI
+Loreal-frontend/   React 19, Vite, TypeScript
+PROPOSAL.md        Business context, architecture and roadmap
 ```
 
-This branch contains only what the brief asks for. The `main` branch has a fuller version with the four-role workflow (business team, claim manager, scientist, evaluator).
+## Where things are
 
-| Requirement | Where |
+| Part of the brief | File |
 |---|---|
-| Prisma schema for Claim and Assessment | `Loreal-backend/prisma/schema.prisma` |
-| `POST /api/claims/assess` controller and service | `Loreal-backend/src/claims/` |
-| OpenAI call with structured output | `Loreal-backend/src/llm/` |
-| React component showing the result | `Loreal-frontend/src/components/ClaimAssessment.tsx` |
+| Prisma schema (Claim, Assessment) | `Loreal-backend/prisma/schema.prisma` |
+| `POST /api/claims/assess` | `Loreal-backend/src/claims/` |
+| LLM call | `Loreal-backend/src/llm/` |
+| React UI | `Loreal-frontend/src/components/` |
 
-## 1. Database
+## Running it
 
-Create the database once (PostgreSQL 18 on port 5432):
+**1. Database** (PostgreSQL on port 5432)
 
 ```sh
-"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE loreal_claims_core;"
+psql -U postgres -c "CREATE DATABASE loreal_claims_core;"
 ```
 
-## 2. Backend
+**2. Backend**
 
 ```sh
 cd Loreal-backend
 npm install
-# edit .env: DATABASE_URL (your postgres password) and optionally OPENAI_API_KEY
-npx prisma migrate deploy     # creates the Claim and Assessment tables
-npm run db:seed               # optional: sample claims and assessments (safe to re-run)
+cp .env.example .env          # set DATABASE_URL, and OPENAI_API_KEY if you have one
+npx prisma migrate deploy
+npm run db:seed               # optional sample data
 npm run start:dev             # http://localhost:3000/api
 ```
 
-Without `OPENAI_API_KEY`, a deterministic **offline mock assessor** is used, so the demo runs with no key or credits. Its results show `model: "mock"`.
+No OpenAI key? Leave `OPENAI_API_KEY` empty and a built-in mock assessor is used instead (results show `model: "mock"`).
 
-If npm blocks Prisma's install scripts, run `npx prisma generate` once after `npm install`. On Windows, stop the backend before running `prisma generate`, or the engine file is locked.
+**3. Frontend**
 
-### API
-
-`POST /api/claims/assess`
-
-```json
-{
-  "productName": "Revitalift Night Cream",
-  "claim": "Reduces wrinkles by 20% in 4 weeks",
-  "evidence": "Randomised, double-blind study, n=60. Wrinkle depth -22% at week 4 (p<0.01)."
-}
+```sh
+cd Loreal-frontend
+npm install
+npm run dev                   # http://localhost:5173
 ```
 
-Response (201):
+Click **Use sample** to fill the form, then **Run AI Assessment**.
+
+## API
+
+`POST /api/claims/assess` takes the evidence either way:
+
+- **multipart form:** `productName`, `claim`, `file` (PDF, max 10 MB)
+- **JSON:** `{ "productName", "claim", "evidence" }`
 
 ```json
 {
@@ -64,20 +66,17 @@ Response (201):
   "confidenceScore": 0.9,
   "reasoning": "…",
   "model": "gpt-4o-mini",
-  "createdAt": "2026-11-17T16:34:18.674Z"
+  "createdAt": "2026-11-17T16:34:18.674Z",
+  "cached": false
 }
 ```
 
-Errors: 400 for invalid input, 502 when the AI service is unavailable.
+Errors: `400` invalid input or not a PDF, `413` file too large, `422` unreadable PDF, `502` AI service unavailable.
 
-A claim is matched on product plus normalized wording (trimmed, lowercased, single spaces). Submitting the same claim again with new evidence adds a new assessment to the same claim.
+## A few decisions
 
-## 3. Frontend
-
-```sh
-cd Loreal-frontend
-npm install
-npm run dev                   # http://localhost:5173 (proxies /api to :3000)
-```
-
-Click **Use sample** to fill the form, then **Run AI Assessment**.
+- **Same claim, same evidence, no second LLM call.** The LLM runs at temperature 0, so I reuse the earlier verdict (`cached: true`). The lookup is indexed on a hash of the evidence, the model and the prompt version.
+- **Claims are matched on product + normalized text** (trimmed, lowercased, single spaces), so re-assessing a claim adds to its history instead of creating a duplicate.
+- **The LLM is called before anything is saved**, so a failed call never leaves a half-written record.
+- **Structured output** (JSON schema) keeps the LLM response in a fixed shape, and the prompt treats the study text as data, not instructions.
+- **PDFs are checked by content** (`%PDF-` header), not just the file name.
