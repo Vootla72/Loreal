@@ -162,6 +162,7 @@ form.card > button[type="submit"] {
 
 /* ---------- PDF picker ---------- */
 .file-picker {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -178,8 +179,34 @@ form.card > button[type="submit"] {
   place-items: center;
   width: 42px;
   height: 42px;
-  padding: 0;
+  margin: 0;
   border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--primary-hover);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.visually-hidden:focus-visible + .icon-button {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.visually-hidden:disabled + .icon-button {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .file-name {
