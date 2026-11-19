@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 
 import type { Assessment } from "../types/assessment";
 import { ConfidenceMeter } from "./ConfidenceMeter";
+import { LoadingState } from "./LoadingState";
 
 interface AssessmentResultProps {
   result: Assessment | null;
@@ -16,9 +17,11 @@ export const AssessmentResult = memo(function AssessmentResult({ result, error, 
   <section className="card result-card" aria-live="polite" aria-busy={loading}>
     <h2>Result</h2>
 
+    {loading && <LoadingState />}
+
     {error && <p className="form-error">{error}</p>}
 
-    {!result && !error && (
+    {!loading && !result && !error && (
       <p className="muted">Upload a clinical study to see whether it justifies the claim.</p>
     )}
 

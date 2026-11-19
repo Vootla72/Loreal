@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LlmService } from '../llm/llm.service';
@@ -10,6 +10,8 @@ import { AssessmentResponse, RESPONSE_SELECT, SavedAssessment, toResponse } from
 
 @Injectable()
 export class ClaimsService {
+  private readonly logger = new Logger(ClaimsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly llm: LlmService,
@@ -32,7 +34,10 @@ export class ClaimsService {
       orderBy: { createdAt: 'desc' },
       select: RESPONSE_SELECT,
     });
-    if (cached) return toResponse(cached, true);
+    if (cached) {
+      this.logger.log(`Cache hit: reused assessment #${cached.id}, LLM not called`);
+      return toResponse(cached, true);
+    }
 
     // Call the LLM first, so a failed call leaves nothing half-saved.
     const verdict = await this.llm.assessClaim({

@@ -20,9 +20,11 @@ export class LlmService {
 
   constructor(config: ConfigService) {
     const apiKey = config.get<string>('OPENAI_API_KEY');
+    const baseURL = config.get<string>('OPENAI_BASE_URL') || undefined;
     this.model = config.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
     if (apiKey) {
-      this.client = new OpenAI({ apiKey, timeout: 30_000, maxRetries: 2 });
+      this.client = new OpenAI({ apiKey, baseURL, timeout: 30_000, maxRetries: 2 });
+      this.logger.log(`LLM: ${this.model} via ${new URL(this.client.baseURL).host}`);
     } else {
       this.logger.warn('OPENAI_API_KEY not set: using the offline mock assessor.');
     }
@@ -43,6 +45,8 @@ export class LlmService {
   }
 
   private async callOpenAi(client: OpenAI, input: PromptInput): Promise<Verdict> {
+    const startedAt = Date.now();
+    this.logger.log(`Calling ${this.model}…`);
     try {
       const completion = await client.chat.completions.create({
         model: this.model,
@@ -63,9 +67,11 @@ export class LlmService {
       ) {
         throw new Error('Model response did not match schema');
       }
+      const tokens = completion.usage?.total_tokens;
+      this.logger.log(`${this.model} answered in ${Date.now() - startedAt} ms${tokens ? `, ${tokens} tokens` : ''}`);
       return parsed;
     } catch (error) {
-      this.logger.error(`OpenAI assessment failed: ${(error as Error).message}`);
+      this.logger.error(`LLM assessment failed: ${(error as Error).message}`);
       throw new BadGatewayException('The AI assessment service is unavailable. Please try again.');
     }
   }

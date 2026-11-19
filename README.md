@@ -37,7 +37,10 @@ npm run db:seed               # optional sample data
 npm run start:dev             # http://localhost:3000/api
 ```
 
-No OpenAI key? Leave `OPENAI_API_KEY` empty and a built-in mock assessor is used instead (results show `model: "mock"`).
+No OpenAI key? Two options:
+
+- **Free Gemini key:** set `OPENAI_API_KEY` to a key from [Google AI Studio](https://aistudio.google.com/apikey), `OPENAI_BASE_URL` to `https://generativelanguage.googleapis.com/v1beta/openai/` and `OPENAI_MODEL` to a Gemini model (e.g. `gemini-3.5-flash-lite`). The same OpenAI SDK code is used.
+- **Offline:** leave `OPENAI_API_KEY` empty and a built-in mock assessor is used (results show `model: "mock"`).
 
 **3. Frontend**
 

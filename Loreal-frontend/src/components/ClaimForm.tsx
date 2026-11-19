@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import type { SubmitEvent } from "react";
+import { LoaderCircle } from "lucide-react";
 
 import { checkPdf } from "../utils/utils";
 import type { AssessClaimUploadRequest } from "../types/assessment";
@@ -51,7 +52,7 @@ export const ClaimForm = memo(function ClaimForm({ loading, onSubmit }: ClaimFor
       <div className="card-header">
         <h2>Assess a Claim</h2>
         <SampleForm
-          show 
+          // show 
           disabled={loading}
           onFill={fillSample}
           onError={setFileError}
@@ -90,7 +91,8 @@ export const ClaimForm = memo(function ClaimForm({ loading, onSubmit }: ClaimFor
         onRemove={handleRemove}
       />
 
-      <button type="submit" disabled={!canSubmit}>
+      <button type="submit" className="submit-button" disabled={!canSubmit}>
+        {loading && <LoaderCircle className="spin" size={16} aria-hidden="true" />}
         {loading ? "Assessing…" : "Run AI Assessment"}
       </button>
     </form>

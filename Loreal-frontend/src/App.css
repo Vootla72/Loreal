@@ -152,6 +152,7 @@ form.card > button[type="submit"] {
 
 .link-button,
 .link-button:hover,
+.link-button:disabled,
 .link-button:disabled:hover {
   padding: 0;
   background: none;
@@ -220,6 +221,7 @@ form.card > button[type="submit"] {
 
 .remove-file,
 .remove-file:hover,
+.remove-file:disabled,
 .remove-file:disabled:hover {
   flex: none;
   width: 28px;
@@ -361,6 +363,80 @@ form.card > button[type="submit"] {
   background: var(--primary-soft);
   color: var(--primary-hover);
   font-size: 13px;
+}
+
+/* ---------- Loading ---------- */
+.submit-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+.loading-state {
+  padding: 4px 0 0 18px;
+  border-left: 5px solid var(--primary-soft);
+}
+
+.loading-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary);
+}
+
+.loading-state .muted {
+  margin: 8px 0 18px;
+  font-size: 14px;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #ece9f5 25%, #f6f4fb 50%, #ece9f5 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line.short {
+  width: 35%;
+  height: 22px;
+}
+
+.skeleton-line.medium {
+  width: 70%;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Respect users who turn off animations in their OS settings. */
+@media (prefers-reduced-motion: reduce) {
+  .spin,
+  .skeleton-line {
+    animation: none;
+  }
 }
 
 /* ---------- Responsive ---------- */
