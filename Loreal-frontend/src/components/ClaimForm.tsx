@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import type { SubmitEvent } from "react";
 
 import { checkPdf } from "../utils/utils";
@@ -11,36 +11,40 @@ interface ClaimFormProps {
   onSubmit: (request: AssessClaimUploadRequest) => void;
 }
 
-export const ClaimForm = ({ loading, onSubmit }: ClaimFormProps) => {
+export const ClaimForm = memo(function ClaimForm({ loading, onSubmit }: ClaimFormProps) {
   const [productName, setProductName] = useState("");
   const [claim, setClaim] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
 
-  const canSubmit =
-    !loading &&
-    productName.trim() !== "" &&
-    claim.trim() !== "" &&
-    file !== null;
+  const canSubmit = useMemo(
+    () => !loading && productName.trim() !== "" && claim.trim() !== "" && file !== null,
+    [loading, productName, claim, file],
+  );
 
-  const handlePick = (picked: File) => {
+  const handlePick = useCallback((picked: File) => {
     const problem = checkPdf(picked);
     setFileError(problem);
     if (!problem) setFile(picked);
-  };
+  }, []);
 
-  const fillSample = (sample: AssessClaimUploadRequest) => {
+  const handleRemove = useCallback(() => setFile(null), []);
+
+  const fillSample = useCallback((sample: AssessClaimUploadRequest) => {
     setProductName(sample.productName);
     setClaim(sample.claim);
     setFile(sample.file);
     setFileError(null);
-  };
+  }, []);
 
-  const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canSubmit || !file) return;
-    onSubmit({ productName, claim, file });
-  };
+  const handleSubmit = useCallback(
+    (event: SubmitEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!canSubmit || !file) return;
+      onSubmit({ productName, claim, file });
+    },
+    [canSubmit, file, productName, claim, onSubmit],
+  );
 
   return (
     <form className="card" onSubmit={handleSubmit}>
@@ -83,7 +87,7 @@ export const ClaimForm = ({ loading, onSubmit }: ClaimFormProps) => {
         error={fileError}
         disabled={loading}
         onPick={handlePick}
-        onRemove={() => setFile(null)}
+        onRemove={handleRemove}
       />
 
       <button type="submit" disabled={!canSubmit}>
@@ -91,4 +95,4 @@ export const ClaimForm = ({ loading, onSubmit }: ClaimFormProps) => {
       </button>
     </form>
   );
-};
+});

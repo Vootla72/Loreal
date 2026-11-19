@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import type { ChangeEvent } from "react";
 import { FileUp } from "lucide-react";
 
@@ -12,12 +13,15 @@ interface PdfPickerProps {
   onRemove: () => void;
 }
 
-export const PdfPicker = ({ id, file, error, disabled, onPick, onRemove }: PdfPickerProps) => {
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const picked = event.target.files?.[0];
-    event.target.value = ""; 
-    if (picked) onPick(picked);
-  };
+export const PdfPicker = memo(function PdfPicker({ id, file, error, disabled, onPick, onRemove }: PdfPickerProps) {
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const picked = event.target.files?.[0];
+      event.target.value = ""; // allows choosing the same file again later
+      if (picked) onPick(picked);
+    },
+    [onPick],
+  );
 
   return (
     <>
@@ -51,4 +55,4 @@ export const PdfPicker = ({ id, file, error, disabled, onPick, onRemove }: PdfPi
       {error && <p className="field-error" role="alert">{error}</p>}
     </>
   );
-};
+});

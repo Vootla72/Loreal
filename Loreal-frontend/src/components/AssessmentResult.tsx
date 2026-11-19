@@ -1,3 +1,5 @@
+import { memo, useMemo } from "react";
+
 import type { Assessment } from "../types/assessment";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 
@@ -7,7 +9,10 @@ interface AssessmentResultProps {
   loading: boolean;
 }
 
-export const AssessmentResult = ({ result, error, loading }: AssessmentResultProps) => (
+export const AssessmentResult = memo(function AssessmentResult({ result, error, loading }: AssessmentResultProps) {
+  const assessedAt = useMemo(() => (result ? new Date(result.createdAt).toLocaleString() : ""), [result]);
+
+  return (
   <section className="card result-card" aria-live="polite" aria-busy={loading}>
     <h2>Result</h2>
 
@@ -45,9 +50,10 @@ export const AssessmentResult = ({ result, error, loading }: AssessmentResultPro
 
         <small className="muted">
           {result.cached ? "Reused assessment" : "Saved as assessment"} #{result.id} for claim #{result.claimId} ·
-          Model: {result.model} · {new Date(result.createdAt).toLocaleString()}
+          Model: {result.model} · {assessedAt}
         </small>
       </div>
     )}
   </section>
-);
+  );
+});
