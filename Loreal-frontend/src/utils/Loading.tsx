@@ -1,7 +1,6 @@
-import { memo } from "react";
 import { LoaderCircle } from "lucide-react";
 
-export const LoadingState = memo(function LoadingState() {
+export function Loading() {
   return (
     <div className="loading-state" role="status">
       <div className="loading-title">
@@ -18,4 +17,4 @@ export const LoadingState = memo(function LoadingState() {
       </div>
     </div>
   );
-});
+}

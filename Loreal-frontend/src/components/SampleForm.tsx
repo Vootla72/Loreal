@@ -1,5 +1,3 @@
-import { memo } from "react";
-
 import type { AssessClaimUploadRequest } from "../types/assessment";
 import { SAMPLE_DATA } from "../data/sampleData";
 
@@ -16,7 +14,7 @@ interface SampleFormProps {
   onError: (message: string) => void;
 }
 
-export const SampleForm = memo(function SampleForm({ show = false, disabled, onFill, onError }: SampleFormProps) {
+export function SampleForm({ show = false, disabled, onFill, onError }: SampleFormProps) {
   if (!show) return null;
 
   const fillSample = async () => {
@@ -32,4 +30,4 @@ export const SampleForm = memo(function SampleForm({ show = false, disabled, onF
       Use sample
     </button>
   );
-});
+}

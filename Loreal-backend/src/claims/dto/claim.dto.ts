@@ -1,12 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().replace(/[ \t]+/g, ' ') : value;
 
 /**
- * Fields of POST /api/claims/assess, sent as JSON or as multipart form fields.
- * The evidence is either the `evidence` text or an uploaded PDF `file`.
+ * Text fields of POST /api/claims/assess, sent as multipart form fields.
+ * The evidence is the uploaded PDF `file`, handled by the controller.
  */
 export class AssessClaimDto {
   @Transform(trim)
@@ -20,11 +20,4 @@ export class AssessClaimDto {
   @IsNotEmpty()
   @MaxLength(500)
   claim: string;
-
-  @IsOptional()
-  @Transform(trim)
-  @IsString()
-  @MinLength(20, { message: 'evidence must describe the study (at least 20 characters)' })
-  @MaxLength(20000)
-  evidence?: string;
 }

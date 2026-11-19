@@ -10,20 +10,16 @@ export class ClaimsController {
 
   /**
    * POST /api/claims/assess  ->  saved assessment
-   *  - JSON:      { productName, claim, evidence }
-   *  - multipart: productName, claim, file (PDF)
+   *  multipart: productName, claim, file (PDF evidence)
    */
   @Post('assess')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_PDF_BYTES } }))
   async assess(@Body() dto: AssessClaimDto, @UploadedFile() file?: Express.Multer.File) {
-    if (file && dto.evidence) {
-      throw new BadRequestException('Send the evidence as text or as a PDF file, not both.');
+    if (!file) {
+      throw new BadRequestException('Upload the evidence as a PDF file ("file").');
     }
     // Read the PDF first, so a bad file never costs an LLM call.
-    const evidence = file ? await readPdfText(file) : dto.evidence;
-    if (!evidence) {
-      throw new BadRequestException('Provide the evidence as text ("evidence") or as a PDF file ("file").');
-    }
+    const evidence = await readPdfText(file);
     return this.claims.assess({ ...dto, evidence });
   }
 }

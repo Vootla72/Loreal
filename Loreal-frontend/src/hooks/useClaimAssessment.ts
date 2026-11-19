@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { assessClaimWithPdf } from "../services/claimsApi";
 import type { AssessClaimUploadRequest, Assessment } from "../types/assessment";
@@ -8,7 +8,7 @@ export const useClaimAssessment = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const assess = useCallback(async (request: AssessClaimUploadRequest) => {
+  const assess = async (request: AssessClaimUploadRequest) => {
     setLoading(true);
     setError(null);
     setResult(null);
@@ -19,7 +19,7 @@ export const useClaimAssessment = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   return { result, loading, error, assess };
 };

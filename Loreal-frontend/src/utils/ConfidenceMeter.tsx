@@ -1,15 +1,8 @@
-import { memo, useMemo } from "react";
-
 import { CONFIDENCE_HIGH, CONFIDENCE_MEDIUM } from "../constants";
 
-export const ConfidenceMeter = memo(function ConfidenceMeter({ score }: { score: number }) {
-  const { pct, level } = useMemo(
-    () => ({
-      pct: Math.round(score * 100),
-      level: score >= CONFIDENCE_HIGH ? "high" : score >= CONFIDENCE_MEDIUM ? "medium" : "low",
-    }),
-    [score],
-  );
+export function ConfidenceMeter({ score }: { score: number }) {
+  const pct = Math.round(score * 100);
+  const level = score >= CONFIDENCE_HIGH ? "high" : score >= CONFIDENCE_MEDIUM ? "medium" : "low";
 
   return (
     <div className="confidence">
@@ -27,4 +20,4 @@ export const ConfidenceMeter = memo(function ConfidenceMeter({ score }: { score:
       </div>
     </div>
   );
-});
+}

@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo, useState } from "react";
-import type { SubmitEvent } from "react";
+import { useState } from "react";
+import type { ChangeEvent, SubmitEvent } from "react";
 import { LoaderCircle } from "lucide-react";
 
 import { checkPdf } from "../utils/utils";
@@ -12,47 +12,45 @@ interface ClaimFormProps {
   onSubmit: (request: AssessClaimUploadRequest) => void;
 }
 
-export const ClaimForm = memo(function ClaimForm({ loading, onSubmit }: ClaimFormProps) {
+export function ClaimForm({ loading, onSubmit }: ClaimFormProps) {
   const [productName, setProductName] = useState("");
   const [claim, setClaim] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
 
-  const canSubmit = useMemo(
-    () => !loading && productName.trim() !== "" && claim.trim() !== "" && file !== null,
-    [loading, productName, claim, file],
-  );
+  const canSubmit =
+    !loading && productName.trim() !== "" && claim.trim() !== "" && file !== null;
 
-  const handlePick = useCallback((picked: File) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const picked = event.target.files?.[0];
+    event.target.value = ""; // allows choosing the same file again later
+    if (!picked) return;
     const problem = checkPdf(picked);
     setFileError(problem);
     if (!problem) setFile(picked);
-  }, []);
+  };
 
-  const handleRemove = useCallback(() => setFile(null), []);
+  const handleRemove = () => setFile(null);
 
-  const fillSample = useCallback((sample: AssessClaimUploadRequest) => {
+  const fillSample = (sample: AssessClaimUploadRequest) => {
     setProductName(sample.productName);
     setClaim(sample.claim);
     setFile(sample.file);
     setFileError(null);
-  }, []);
+  };
 
-  const handleSubmit = useCallback(
-    (event: SubmitEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      if (!canSubmit || !file) return;
-      onSubmit({ productName, claim, file });
-    },
-    [canSubmit, file, productName, claim, onSubmit],
-  );
+  const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit || !file) return;
+    onSubmit({ productName, claim, file });
+  };
 
   return (
     <form className="card" onSubmit={handleSubmit}>
       <div className="card-header">
         <h2>Assess a Claim</h2>
         <SampleForm
-          // show 
+          show
           disabled={loading}
           onFill={fillSample}
           onError={setFileError}
@@ -87,14 +85,16 @@ export const ClaimForm = memo(function ClaimForm({ loading, onSubmit }: ClaimFor
         file={file}
         error={fileError}
         disabled={loading}
-        onPick={handlePick}
+        onChange={handleFileChange}
         onRemove={handleRemove}
       />
 
       <button type="submit" className="submit-button" disabled={!canSubmit}>
-        {loading && <LoaderCircle className="spin" size={16} aria-hidden="true" />}
+        {loading && (
+          <LoaderCircle className="spin" size={16} aria-hidden="true" />
+        )}
         {loading ? "Assessing…" : "Run AI Assessment"}
       </button>
     </form>
   );
-});
+}

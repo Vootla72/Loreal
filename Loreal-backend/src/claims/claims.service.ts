@@ -17,7 +17,7 @@ export class ClaimsService {
     private readonly llm: LlmService,
   ) {}
 
-  async assess(dto: Required<AssessClaimDto>): Promise<AssessmentResponse> {
+  async assess(dto: AssessClaimDto & { evidence: string }): Promise<AssessmentResponse> {
     const normalizedText = normalizeClaim(dto.claim);
     const evidenceHash = hashEvidence(dto.evidence);
     const model = this.llm.modelId;

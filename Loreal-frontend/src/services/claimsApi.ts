@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import { API_TIMEOUT_MS } from "../constants";
-import type { AssessClaimRequest, AssessClaimUploadRequest, Assessment } from "../types/assessment";
+import type {  AssessClaimUploadRequest, Assessment } from "../types/assessment";
 import { toError } from "./apiError";
 
 const client = axios.create({
@@ -20,7 +20,3 @@ export async function assessClaimWithPdf({ productName, claim, file }: AssessCla
   return data;
 }
 
-export async function assessClaim(request: AssessClaimRequest): Promise<Assessment> {
-  const { data } = await client.post<Assessment>("/claims/assess", request);
-  return data;
-}

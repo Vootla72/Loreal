@@ -54,10 +54,7 @@ Click **Use sample** to fill the form, then **Run AI Assessment**.
 
 ## API
 
-`POST /api/claims/assess` takes the evidence either way:
-
-- **multipart form:** `productName`, `claim`, `file` (PDF, max 10 MB)
-- **JSON:** `{ "productName", "claim", "evidence" }`
+`POST /api/claims/assess` takes a multipart form with `productName`, `claim` and `file` (the evidence as a PDF, max 10 MB), and returns the saved assessment:
 
 ```json
 {
