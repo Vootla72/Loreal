@@ -28,10 +28,6 @@ export class LlmService {
     }
   }
 
-  get mode(): string {
-    return this.client ? `openai:${this.model}` : 'mock';
-  }
-
   /** The model id stored with each verdict, known before the call so it can be part of the cache key. */
   get modelId(): string {
     return this.client ? this.model : 'mock';

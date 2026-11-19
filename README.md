@@ -68,7 +68,7 @@ Response (201):
 }
 ```
 
-Errors: 400 for invalid input, 502 when the AI service is unavailable. `GET /api/health` reports the database status and the LLM mode.
+Errors: 400 for invalid input, 502 when the AI service is unavailable.
 
 A claim is matched on product plus normalized wording (trimmed, lowercased, single spaces). Submitting the same claim again with new evidence adds a new assessment to the same claim.
 
