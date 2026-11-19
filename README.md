@@ -25,8 +25,6 @@ Create the database once (PostgreSQL 18 on port 5432):
 "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE loreal_claims_core;"
 ```
 
-Or use Docker: `cd Loreal-backend && docker compose up -d` (port 5434, password `postgres`).
-
 ## 2. Backend
 
 ```sh
