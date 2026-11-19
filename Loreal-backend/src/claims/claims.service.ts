@@ -4,22 +4,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LlmService } from '../llm/llm.service';
 import { PROMPT_VERSION } from '../llm/assessment.prompt';
 import { AssessClaimDto } from './dto/claim.dto';
-import { hashEvidence } from './evidence-hash';
-import { normalizeClaim } from './normalize-claim';
-
-// Return only what the UI shows; never read the (potentially large) evidence back.
-const RESPONSE_SELECT = {
-  id: true,
-  claimId: true,
-  isJustified: true,
-  confidenceScore: true,
-  reasoning: true,
-  model: true,
-  createdAt: true,
-  claim: { select: { productName: true, claimText: true } },
-} satisfies Prisma.AssessmentSelect;
-
-type SavedAssessment = Prisma.AssessmentGetPayload<{ select: typeof RESPONSE_SELECT }>;
+import { hashEvidence } from '../utils/evidence-hash';
+import { normalizeClaim } from '../utils/normalize-claim';
+import { AssessmentResponse, RESPONSE_SELECT, SavedAssessment, toResponse } from './assessment.response';
 
 @Injectable()
 export class ClaimsService {
@@ -28,7 +15,7 @@ export class ClaimsService {
     private readonly llm: LlmService,
   ) {}
 
-  async assess(dto: Required<AssessClaimDto>) {
+  async assess(dto: Required<AssessClaimDto>): Promise<AssessmentResponse> {
     const normalizedText = normalizeClaim(dto.claim);
     const evidenceHash = hashEvidence(dto.evidence);
     const model = this.llm.modelId;
@@ -86,16 +73,3 @@ export class ClaimsService {
     return toResponse(assessment, false);
   }
 }
-
-const toResponse = (assessment: SavedAssessment, cached: boolean) => ({
-  id: assessment.id,
-  claimId: assessment.claimId,
-  productName: assessment.claim.productName,
-  claim: assessment.claim.claimText,
-  isJustified: assessment.isJustified,
-  confidenceScore: assessment.confidenceScore,
-  reasoning: assessment.reasoning,
-  model: assessment.model,
-  createdAt: assessment.createdAt.toISOString(),
-  cached,
-});

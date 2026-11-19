@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Post, UploadedFile, UseIntercept
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ClaimsService } from './claims.service';
 import { AssessClaimDto } from './dto/claim.dto';
-import { MAX_PDF_BYTES, readPdfText } from './pdf-text';
+import { MAX_PDF_BYTES, readPdfText } from '../utils/pdf-text';
 
 @Controller('claims')
 export class ClaimsController {

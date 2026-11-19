@@ -12,4 +12,8 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Claims Intelligence API listening on http://localhost:${port}/api`);
 }
-bootstrap();
+// handle error if the database is unreachable
+bootstrap().catch((error) => {
+  console.error('Failed to start the Claims Intelligence API', error);
+  process.exit(1);
+});

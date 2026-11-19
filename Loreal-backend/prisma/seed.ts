@@ -6,7 +6,7 @@
  * Run: npm run db:seed
  */
 import { PrismaClient } from '@prisma/client';
-import { normalizeClaim } from '../src/claims/normalize-claim';
+import { normalizeClaim } from '../src/utils/normalize-claim';
 import { hashEvidence } from '../src/claims/evidence-hash';
 
 const prisma = new PrismaClient();
