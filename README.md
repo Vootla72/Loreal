@@ -73,10 +73,3 @@ Click **Use sample** to fill the form, then **Run AI Assessment**.
 
 Errors: `400` invalid input or not a PDF, `413` file too large, `422` unreadable PDF, `502` AI service unavailable.
 
-## A few decisions
-
-- **Same claim, same evidence, no second LLM call.** The LLM runs at temperature 0, so I reuse the earlier verdict (`cached: true`). The lookup is indexed on a hash of the evidence, the model and the prompt version.
-- **Claims are matched on product + normalized text** (trimmed, lowercased, single spaces), so re-assessing a claim adds to its history instead of creating a duplicate.
-- **The LLM is called before anything is saved**, so a failed call never leaves a half-written record.
-- **Structured output** (JSON schema) keeps the LLM response in a fixed shape, and the prompt treats the study text as data, not instructions.
-- **PDFs are checked by content** (`%PDF-` header), not just the file name.
